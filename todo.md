@@ -1,0 +1,5 @@
+- [x] prompt shows current working directory
+- [ ] Understand how creating processes actually works
+- [ ] Use ncurses
+    - [ ] clear screen
+    - [ ] arrows to see previous commands
