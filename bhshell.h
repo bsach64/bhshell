@@ -2,8 +2,6 @@
 #define BHSHELL_H
 
 void bhshell_loop();
-char* bhshell_read_line();
-char** bhshell_split_line(char* line);
 int bhshell_execute(char** args);
 int bhshell_launch(char** args); 
 int bhshell_cd(char** args);

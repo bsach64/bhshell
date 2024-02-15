@@ -2,14 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <strings.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <sys/wait.h>
 
+#include "input.h"
 #include "bhshell.h"
 
-#define READLINE_BUFFER_SIZE 32
-#define bhshell_TOK_BUFSIZE 64
-#define bhshell_TOK_DELIM " \t\r\n\a"
 
 char* bhshell_builtin_str[] = {
 	"cd",
@@ -24,90 +24,25 @@ int (*bhshell_builtin_func[]) (char**) = {
 };
 
 void bhshell_loop() {
-	char* line; 
 	char** args; 
 	int status = 1;
-	char* dir = NULL;
 
 	do {
-		dir = getcwd(NULL, 0);
+		char* dir = getcwd(NULL, 0);
 		printf("[%s] $ ", dir);
-		line = bhshell_read_line();
-		args = bhshell_split_line(line);
-		status = bhshell_execute(args); 
+		char* line = bhshell_read_line();
+		command* cmd = bhshell_parse(line);
+		status = bhshell_execute(cmd->args); 
 		
+		if (cmd->does_redirect) {
+
+		}
+
 		free(dir);
 		free(line);
-		free(args);
+		destroy_cmd(cmd);
 
 	} while(status); 
-}
-
-char* bhshell_read_line() {
-	size_t bufsize = READLINE_BUFFER_SIZE;
-	size_t position = 0;
-	char* buffer = malloc(bufsize * (sizeof(char)));
-	int c;
-
-	if (!buffer) {
-		fprintf(stderr, "bhshell: allocation error");
-		exit(EXIT_FAILURE);
-	}
-
-	while(1) {
-		c = getchar();
-		if (c == '\n' || c == EOF) {
-			buffer[position] = '\0';
-			return buffer;
-		} else {
-			buffer[position] = c;
-		}
-		
-		if (position + 1 >= bufsize) {
-			bufsize += READLINE_BUFFER_SIZE;
-			char* newbuffer = realloc(buffer, bufsize);
-			if (!newbuffer) {
-				fprintf(stderr, "bhshell: allocation error\n");
-				free(buffer);
-				exit(EXIT_FAILURE);
-			}
-			buffer = newbuffer;
-		}
-		position++;	
-	}
-}
-
-char** bhshell_split_line(char* line) {
-	int bufsize = bhshell_TOK_BUFSIZE, position = 0;
-	char** tokens = malloc(bufsize * sizeof(char*));
-	char* token;
-
-	if (!tokens) {
-		fprintf(stderr,"bhshell: allocation error\n");
-		exit(EXIT_FAILURE);
-	}
-
-	token = strtok(line, bhshell_TOK_DELIM);
-
-	while (token != NULL) {
-		tokens[position] = token;
-		position++;
-
-		if (position >= bufsize) {
-			bufsize += bhshell_TOK_BUFSIZE;
-			char** new_tokens = realloc(tokens, bufsize * sizeof(char*));
-			if (!new_tokens) {
-				fprintf(stderr, "bhshell: allocation error\n");
-				free(tokens);
-				exit(EXIT_FAILURE);
-			}
-			tokens = new_tokens;
-		}
-
-		token = strtok(NULL, bhshell_TOK_DELIM);
-	}
-	tokens[position] = NULL;
-	return tokens;
 }
 
 int bhshell_execute(char** args) {
