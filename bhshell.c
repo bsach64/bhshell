@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <sys/wait.h>
+#include <fcntl.h>
+#include <stdbool.h>
 
 #include "input.h"
 #include "bhshell.h"
@@ -32,12 +34,7 @@ void bhshell_loop() {
 		printf("[%s] $ ", dir);
 		char* line = bhshell_read_line();
 		command* cmd = bhshell_parse(line);
-		status = bhshell_execute(cmd->args); 
-		
-		if (cmd->does_redirect) {
-
-		}
-
+		status = bhshell_execute(cmd); 
 		free(dir);
 		free(line);
 		destroy_cmd(cmd);
@@ -45,36 +42,85 @@ void bhshell_loop() {
 	} while(status); 
 }
 
-int bhshell_execute(char** args) {
-	if (args[0] == NULL) {
+int bhshell_execute(command* cmd) {
+	if (cmd->args[0] == NULL) {
 		return 1;
 	}
 
 	for (int i = 0; i < bhshell_num_builtins(); i++) {
-		if (strcmp(args[0], bhshell_builtin_str[i]) == 0) {
-			return (*bhshell_builtin_func[i])(args);
+		if (strcmp(cmd->args[0], bhshell_builtin_str[i]) == 0) {
+			return (*bhshell_builtin_func[i])(cmd->args);
 		}
 	}
-	return bhshell_launch(args);
+	return bhshell_launch(cmd);
 }
 
-int bhshell_launch(char** args) {
+int bhshell_launch(command* cmd) {
 	pid_t pid, wpid;
 	int status;
 
+	int redirect_fd[2];
+	if (cmd->redirect_file_name != NULL) {
+		if (pipe(redirect_fd) == -1) {
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	pid = fork();
 	if (pid == 0) {
-		if (execvp(args[0], args) == -1) {
+		if (cmd->redirect_file_name != NULL) {
+			if (dup2(redirect_fd[1], STDOUT_FILENO) == -1) {
+				fprintf(stderr, "bhshell: Could not redirect stdout to file\n");
+				exit(EXIT_FAILURE);
+			}
+			close(redirect_fd[0]);
+			close(redirect_fd[1]);
+		}
+
+		if (execvp(cmd->args[0], cmd->args) == -1) {
 			perror("bhshell");
 		}
+		// execvp takes over the entire process
+		// so if return backs to this process it has errored
 		exit(EXIT_FAILURE);
 	} else if (pid < 0) {
 		// error forking
-		perror("bhshell");
+		perror("bhshell: Could not create child process");
 	} else {
+		if (cmd->redirect_file_name != NULL) {
+			pid_t write_pid = fork();
+			
+			if (write_pid == -1) {
+				perror("bhshell");
+				exit(EXIT_FAILURE);
+			}
+
+			if (write_pid == 0) {
+				int file = open(cmd->redirect_file_name, O_WRONLY | O_CREAT, 0777);
+				
+				if (file == -1) {
+					close(redirect_fd[0]);
+					exit(EXIT_FAILURE);
+				}
+				if (dup2(redirect_fd[0], file) == -1) {
+					close(file);
+					close(redirect_fd[0]);
+				}
+				close(file);
+				close(redirect_fd[0]);
+				close(redirect_fd[1]);
+			}
+			
+		}
+
 		do {
 			wpid = waitpid(pid, &status, WUNTRACED);
 		} while(!WIFEXITED(status) && !WIFSIGNALED(status));
+	}
+
+	if(cmd->redirect_file_name != NULL) {
+		close(redirect_fd[0]);
+		close(redirect_fd[1]);
 	}
 	return 1;
 }
@@ -91,7 +137,7 @@ int bhshell_cd(char** args) {
 }
 
 int bhshell_help(char** args) {
-	printf("A simple shell to understand processes.\n");
+	printf("A simple shell built to understand how processes work.\n");
 	printf("The following functions are builtin:\n");
 
 	int count = bhshell_num_builtins();

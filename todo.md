@@ -1,6 +1,7 @@
 - [x] prompt shows current working directory
-- [ ] Understand how creating processes actually works
+- [x] Understand how creating processes actually works
 - [ ] Simulate the ">" operator of $BASH
+    - [ ] We can use the tee program
 - [ ] Simulate the "|" operator of $BASH
 - [ ] Escape characters etc {echo "wow" should print wow instead of "wow"}
 - [ ] Implement some level of globbing (Meaning *.txt means all text files in the current dir)

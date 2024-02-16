@@ -5,17 +5,15 @@
 
 typedef struct {
 	char** args;
-	bool does_redirect;
 	char* redirect_file_name;
 } command;
 
 char* bhshell_read_line();
-char** bhshell_split_line(char* line);
 command* bhshell_parse(char* line);
-char** append_token(char** tokens, size_t* bufsize, size_t* position, char* token);
-char* append_char(char* token, size_t* bufsize,  size_t* position, char character);
-void destroy_tokens(char** tokens, size_t position);
+
+char** append_arg(char** args, size_t* args_position, size_t* args_bufsize, char* arg);
+char* append_char(char* arg, size_t* new_arg_position, size_t* new_arg_bufsize, char character);
+
 void destroy_cmd(command* cmd);
-
-
+command* new_command();
 #endif

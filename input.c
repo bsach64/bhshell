@@ -6,10 +6,8 @@
 #include "input.h"
 
 #define READLINE_BUFFER_SIZE 32
-#define bhshell_TOK_BUFSIZE 64
-#define bhshell_TOK_DELIM " \t\r\n\a"
-#define FILE_NAME_BUFSIZE 32
-
+#define ARG_LIST_BUFFER_SIZE 10
+#define ARG_BUFFER_SIZE 32
 
 char* bhshell_read_line() {
 	size_t bufsize = READLINE_BUFFER_SIZE; size_t position = 0;
@@ -44,174 +42,183 @@ char* bhshell_read_line() {
 	}
 }
 
-char** bhshell_split_line(char* line) {
-	int bufsize = bhshell_TOK_BUFSIZE, position = 0;
-	char** tokens = malloc(bufsize * sizeof(char*));
-	char* token;
-
-	if (!tokens) {
-		fprintf(stderr,"bhshell: allocation error\n");
-		exit(EXIT_FAILURE);
-	}
-
-	token = strtok(line, bhshell_TOK_DELIM);
-
-	while (token != NULL) {
-		tokens[position] = token;
-		position++;
-
-		if (position >= bufsize) {
-			bufsize += bhshell_TOK_BUFSIZE;
-			char** new_tokens = realloc(tokens, bufsize * sizeof(char*));
-			if (!new_tokens) {
-				fprintf(stderr, "bhshell: allocation error\n");
-				free(tokens);
-				exit(EXIT_FAILURE);
-			}
-			tokens = new_tokens;
-		}
-
-		token = strtok(NULL, bhshell_TOK_DELIM);
-	}
-	tokens[position] = NULL;
-	return tokens;
-}
-
 command* bhshell_parse(char* line) {
-	command* cmd = malloc(sizeof(command));
-	size_t bufsize = bhshell_TOK_BUFSIZE;
-	size_t position = 0;
+	command* cmd = new_command();
+	if (!cmd) {
+		return NULL;
+	}
 	size_t line_length = strlen(line);
 
-	// allocates space for pointers to each of the strings
-	char** tokens = malloc(bufsize * sizeof(char*));
+	char** args = malloc(ARG_LIST_BUFFER_SIZE * sizeof(char*));
+	size_t args_postion = 0, args_bufsize = ARG_LIST_BUFFER_SIZE;
+
+	if (!args) {
+		fprintf(stderr, "bhshell: allocation error\n");
+		free(cmd);
+		return NULL;
+	}
 	
-	if (!tokens) {
+	char* new_arg = malloc(ARG_BUFFER_SIZE * sizeof(char));
+
+	if (!new_arg) {
 		fprintf(stderr, "bhshell: allocation error\n");
-		exit(EXIT_FAILURE);
+		free(args);
+		free(cmd);
+		return NULL;
 	}
+	
+	size_t new_arg_position = 0, new_arg_bufsize = ARG_BUFFER_SIZE;
 
-	char* current_token = malloc(sizeof(char) * bhshell_TOK_BUFSIZE);
-
-	if (!current_token) {
-		fprintf(stderr, "bhshell: allocation error\n");
-		free(tokens);
-		exit(EXIT_FAILURE);
-	}
-
-	size_t cur_token_pos = 0;
-	size_t cur_token_buf = bhshell_TOK_BUFSIZE;
 	for (size_t i = 0; i < line_length; i++) {
 		if (line[i] == ' ' || line[i] == '\n' || line[i] == '\t' || line[i] == '\r') {
-			current_token = append_char(current_token, &cur_token_buf, &cur_token_pos, '\0');
-			tokens = append_token(tokens, &bufsize, &position, current_token);
-			cur_token_pos = 0; cur_token_buf = bhshell_TOK_BUFSIZE;
-			current_token = malloc(sizeof(char) * bhshell_TOK_BUFSIZE);
-			if (!current_token) {
-				fprintf(stderr, "bhshell: allocation error\n");
-				destroy_tokens(tokens, position);
-				free(cmd);
-				exit(EXIT_FAILURE);
-			}
+			if (new_arg_position > 0) {
+				new_arg = append_char(new_arg, &new_arg_position, &new_arg_bufsize, '\0');
+				
+				if (!new_arg) {
+					free(args);
+					free(cmd);
+					return NULL;
+				}
 
-		} else if (line[i] == '>') {
-			cmd->does_redirect = true;
-			if (cur_token_pos > 0) {
-				tokens = append_token(tokens, &bufsize, &position, current_token);
+				args = append_arg(args, &args_postion, &args_bufsize, new_arg);
+				
+				if (!args) return NULL;
+
+				new_arg = malloc(ARG_BUFFER_SIZE * sizeof(char));
+				
+				if (!new_arg) {
+					free(args);
+					free(cmd);
+					return NULL;
+				}
+
+				new_arg_position = 0; new_arg_bufsize = ARG_BUFFER_SIZE;
 			} else {
-				free(current_token);
+				continue;
 			}
-			tokens = append_token(tokens, &bufsize, &position, NULL);
-			cmd->args = tokens;
+		} else if (line[i] == '>') {
+			if (new_arg_position > 0) {
+				new_arg = append_char(new_arg, &new_arg_position, &new_arg_bufsize, '\0');
+				
+				if (!new_arg) {
+					free(args);
+					free(cmd);
+					return NULL;
+				}
+				args = append_arg(args, &args_postion, &args_bufsize, new_arg);
+				if (!args) return NULL;
+			} else {
+				free(new_arg);
+			}
 
-			char* file_name = malloc(sizeof(char) * FILE_NAME_BUFSIZE);
-			size_t fn_buf = FILE_NAME_BUFSIZE;
-			size_t fn_pos = 0;
+			args = append_arg(args, &args_postion, &args_bufsize, NULL);
+			if (!args) return NULL;
 
+			char* file_name = malloc(ARG_BUFFER_SIZE * sizeof(char));
+			
 			if (!file_name) {
-				fprintf(stderr, "bhshell: allocation error\n");
-				destroy_tokens(tokens, position);
+				free(args);
 				free(cmd);
-				exit(EXIT_FAILURE);
+				return NULL;
 			}
+
+			size_t file_name_position = 0, file_name_bufsize = ARG_BUFFER_SIZE;
+
 			for (size_t j = i + 1; j < line_length; j++) {
-				if (fn_pos == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\r' || line[j] == '\t')) {
+				if (file_name_position == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r')) {
 					continue;
 				}
-				file_name = append_char(file_name, &fn_buf, &fn_pos, line[j]);
+				file_name = append_char(file_name, &file_name_position, &file_name_bufsize, line[j]);
+				if (!file_name) {
+					free(args);
+					free(cmd);
+					return NULL;
+				}
+			}
+			file_name = append_char(file_name, &file_name_position, &file_name_bufsize, '\0');
+			if (!file_name) {
+				free(args);
+				free(cmd);
+				return NULL;
 			}
 			cmd->redirect_file_name = file_name;
 			break;
-
 		} else {
-			current_token = append_char(current_token, &cur_token_buf, &cur_token_pos, line[i]);
+			new_arg = append_char(new_arg, &new_arg_position, &new_arg_bufsize, line[i]);
+			
+			if (!new_arg) {
+				free(args);
+				free(cmd);
+				return NULL;
+			}
 		}
 	}
 
+	if (cmd->redirect_file_name == NULL) {
+		args = append_arg(args, &args_postion, &args_bufsize, NULL);
+	}
+
+	cmd->args = args;
 	return cmd;
 }
 
-char** append_token(char** tokens, size_t* bufsize, size_t* position,  char* token) {
-	if (!tokens) {
-		fprintf(stderr, "bhshell: allocation error");
-		exit(EXIT_FAILURE);
+char** append_arg(char** args, size_t* args_position, size_t* args_bufsize, char* arg) {
+	if (!args) {
+		return NULL;
 	}
 
-	tokens[*position] = token;
-	(*position)++;
-	if ((*position) >= (*bufsize)) {
-		(*bufsize) += bhshell_TOK_BUFSIZE;
-		char** new_tokens = realloc(tokens, (*bufsize) * sizeof(char*));
-		if (!new_tokens) {
+	args[*args_position] = arg;
+	(*args_position)++;
+	
+	if (*args_position >= *args_bufsize) {
+		(*args_bufsize) += ARG_LIST_BUFFER_SIZE;
+		char** new_args = realloc(args, sizeof(char*) * (*args_bufsize));
+		if (!new_args) {
 			fprintf(stderr, "bhshell: allocation error\n");
-			free(tokens);
-			exit(EXIT_FAILURE);
+			free(args);
+			return NULL;
 		}
-		tokens = new_tokens;
+		args = new_args;
 	}
-	return tokens;
-}
-
-char* append_char(char* token, size_t* bufsize, size_t* position, char character) {
-	if (!token) {
-		fprintf(stderr, "bhshell: allocation error");
-		exit(EXIT_FAILURE);
-	}
-
-	token[*position] = character;
-	(*position)++;
-	if ((*position) >= (*bufsize)) {
-		(*bufsize) += bhshell_TOK_BUFSIZE;
-		char* new_token = realloc(token, (*bufsize) * sizeof(char));
-		if (!new_token) {
-			fprintf(stderr, "bhshell: allocation error\n");
-			free(token);
-			exit(EXIT_FAILURE);
-		}
-		token = new_token;
-	}
-	return token;
+	return args;
 }
 
 
-void destroy_tokens(char** tokens, size_t position) {
-	if (position < 1) {
-		return;
+command* new_command() {
+	command* cmd = malloc(sizeof(command));
+	if (!cmd) {
+		fprintf(stderr, "bhshell: allocation error\n");
+		return NULL;
 	}
-	for (size_t i = 0; i < position; i++) {
-		free(tokens[i]);
+	cmd->args = NULL;
+	cmd->redirect_file_name = NULL;
+	return cmd;
+}
+
+char* append_char(char* arg, size_t* new_arg_position, size_t* new_arg_bufsize, char character) {
+	if (!arg) return NULL;
+
+	arg[*new_arg_position] = character;
+	(*new_arg_position)++;
+	
+	if (*new_arg_position >= *new_arg_bufsize) {
+		(*new_arg_bufsize) += ARG_BUFFER_SIZE;
+		char* new_arg = realloc(arg, sizeof(char) * (*new_arg_bufsize));
+		if (!new_arg) {
+			fprintf(stderr, "bhshell: allocation error\n");
+			free(arg);
+			return NULL;
+		}
+		arg = new_arg;
 	}
-	free(tokens);
+	return arg;
 }
 
 void destroy_cmd(command* cmd) {
-	if (!cmd) return;
-
 	size_t i = 0;
-	while(cmd->args[i] != NULL) {
+	while (cmd->args[i] != NULL) {
 		free(cmd->args[i]);
 		i++;
 	}
 	free(cmd);
 }
-

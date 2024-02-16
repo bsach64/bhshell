@@ -8,21 +8,27 @@
 #include "input.h"
 
 int main(void) {
-	char* line = bhshell_read_line();
-	printf("line: %s\n", line);
-	
-	command* cmd = bhshell_parse(line);
-
-	size_t i = 0;
-	while (cmd->args[i] != NULL) {
-		printf("[%s]", cmd->args[i]);
-		i++;
-	}
-
-	printf("\nredirect: %s\n", cmd->redirect_file_name);
-	
-	free(line);
-	destroy_cmd(cmd);
+	// char* line = bhshell_read_line();
+	// printf("line: %s\n", line);
+	// //
+	// command* cmd = bhshell_parse(line);
+	//
+	// size_t i = 0;
+	// while (cmd->args[i] != NULL) {
+	// 	printf("[%s]", cmd->args[i]);
+	// 	i++;
+	// }
+	//
+	// if (cmd->redirect_file_name != NULL)
+	// 	printf("\nredirect:%s\n", cmd->redirect_file_name);
+	// else
+	// 	 printf("NO redirect specified\n");
+	//
+	// free(line);
+	// destroy_cmd(cmd);
+	// 
+	// free(line);
+	// destroy_cmd(cmd);
 	// char** args = bhshell_split_line(line);
 	// char* output_file = get_output_file(args);
 	// 
@@ -42,6 +48,6 @@ int main(void) {
 	// free(args);
 	// free(output_file);
 	
-	// bhshell_loop();
+	bhshell_loop();
 	return EXIT_SUCCESS;
 }
