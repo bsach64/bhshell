@@ -10,7 +10,7 @@ So,`ls > file.txt` works.
 `git clone https://github.com/bsach64/bhshell.git`\
 `chmod +x build.sh`\
 `./build.sh`\
-`./bhshell`\
+`./bhshell`
 
 ## TODO
 - [ ] Rewrite for better organisation and error handling
@@ -20,3 +20,4 @@ So,`ls > file.txt` works.
 - [ ] Simulate the "|" operator of $BASH
 - [ ] Escape characters etc {echo "wow" should print wow instead of "wow"}
 - [ ] Implement some level of globbing (Meaning *.txt means all .txt files in the current dir)
+- [ ] Remove `exit(EXIT_FAILURE)`

@@ -4,49 +4,28 @@
 #include <stdbool.h>
 
 #include "input.h"
+#include "dynamicarr.h"
 
-#define READLINE_BUFFER_SIZE 32
 #define ARG_LIST_BUFFER_SIZE 10
-#define ARG_BUFFER_SIZE 32
 
 char* bhshell_read_line() {
-	size_t bufsize = READLINE_BUFFER_SIZE; size_t position = 0;
-	char* buffer = malloc(bufsize * (sizeof(char)));
-	int c;
-
-	if (!buffer) {
-		fprintf(stderr, "bhshell: allocation error");
-		exit(EXIT_FAILURE);
-	}
-
+	str* s = new_str();
+	if (!s) return NULL;
 	while(1) {
-		c = getchar();
-		if (c == '\n' || c == EOF) { 
-			buffer[position] = '\0';
-			return buffer;
+		int c = getchar();
+		if (c == '\n' || c == EOF) {
+			char* string = get_string(s);
+			return string;
 		} else {
-			buffer[position] = c;
+			s = append_char(s, c);
 		}
-		
-		if (position + 1 >= bufsize) {
-			bufsize += READLINE_BUFFER_SIZE;
-			char* newbuffer = realloc(buffer, bufsize * sizeof(char));
-			if (!newbuffer) {
-				fprintf(stderr, "bhshell: allocation error\n");
-				free(buffer); 
-				exit(EXIT_FAILURE);
-			}
-			buffer = newbuffer;
-		}
-		position++;	
 	}
 }
 
 command* bhshell_parse(char* line) {
 	command* cmd = new_command();
-	if (!cmd) {
-		return NULL;
-	}
+	if (!cmd) return NULL;
+
 	size_t line_length = strlen(line);
 
 	char** args = malloc(ARG_LIST_BUFFER_SIZE * sizeof(char*));
@@ -58,95 +37,91 @@ command* bhshell_parse(char* line) {
 		return NULL;
 	}
 	
-	char* new_arg = malloc(ARG_BUFFER_SIZE * sizeof(char));
-
-	if (!new_arg) {
+	str* s = new_str();
+	if (!s) {
 		fprintf(stderr, "bhshell: allocation error\n");
-		free(args);
 		free(cmd);
 		return NULL;
 	}
-	
-	size_t new_arg_position = 0, new_arg_bufsize = ARG_BUFFER_SIZE;
 
 	for (size_t i = 0; i < line_length; i++) {
 		if (line[i] == ' ' || line[i] == '\n' || line[i] == '\t' || line[i] == '\r') {
-			if (new_arg_position > 0) {
-				new_arg = append_char(new_arg, &new_arg_position, &new_arg_bufsize, '\0');
+			if (s->position > 0) {
+				char* string = get_string(s);
 				
-				if (!new_arg) {
+				if (!string) {
 					free(args);
 					free(cmd);
 					return NULL;
 				}
 
-				args = append_arg(args, &args_postion, &args_bufsize, new_arg);
+				args = append_arg(args, &args_postion, &args_bufsize, string);
 				
-				if (!args) return NULL;
-
-				new_arg = malloc(ARG_BUFFER_SIZE * sizeof(char));
+				if (!args) {
+					return NULL;
+				}
 				
-				if (!new_arg) {
+				s = new_str();
+				
+				if (!s) {
 					free(args);
 					free(cmd);
 					return NULL;
 				}
-
-				new_arg_position = 0; new_arg_bufsize = ARG_BUFFER_SIZE;
 			} else {
 				continue;
 			}
 		} else if (line[i] == '>') {
-			if (new_arg_position > 0) {
-				new_arg = append_char(new_arg, &new_arg_position, &new_arg_bufsize, '\0');
+			if (s->position > 0) {
+				char* string = get_string(s);
 				
-				if (!new_arg) {
+				if (!string) {
 					free(args);
 					free(cmd);
 					return NULL;
 				}
-				args = append_arg(args, &args_postion, &args_bufsize, new_arg);
+				args = append_arg(args, &args_postion, &args_bufsize, string);
 				if (!args) return NULL;
 			} else {
-				free(new_arg);
+				destroy_str(s);
 			}
 
 			args = append_arg(args, &args_postion, &args_bufsize, NULL);
 			if (!args) return NULL;
 
-			char* file_name = malloc(ARG_BUFFER_SIZE * sizeof(char));
+			s = new_str();
 			
-			if (!file_name) {
+			if (!s) {
 				free(args);
 				free(cmd);
 				return NULL;
 			}
 
-			size_t file_name_position = 0, file_name_bufsize = ARG_BUFFER_SIZE;
-
 			for (size_t j = i + 1; j < line_length; j++) {
-				if (file_name_position == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r')) {
+				if (s->position == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r')) {
 					continue;
 				}
-				file_name = append_char(file_name, &file_name_position, &file_name_bufsize, line[j]);
-				if (!file_name) {
+				s = append_char(s, line[j]);
+
+				if (!s) {
 					free(args);
 					free(cmd);
 					return NULL;
 				}
 			}
-			file_name = append_char(file_name, &file_name_position, &file_name_bufsize, '\0');
-			if (!file_name) {
+			char* string = get_string(s);
+
+			if (!string) {
 				free(args);
 				free(cmd);
 				return NULL;
 			}
-			cmd->redirect_file_name = file_name;
+			cmd->redirect_file_name = string;
 			break;
 		} else {
-			new_arg = append_char(new_arg, &new_arg_position, &new_arg_bufsize, line[i]);
+			s = append_char(s, line[i]);
 			
-			if (!new_arg) {
+			if (!s) {
 				free(args);
 				free(cmd);
 				return NULL;
@@ -155,9 +130,15 @@ command* bhshell_parse(char* line) {
 	}
 
 	if (cmd->redirect_file_name == NULL) {
-		if (new_arg_position > 0) {
-			new_arg = append_char(new_arg, &new_arg_position, &new_arg_bufsize, '\0');
-			args = append_arg(args, &args_postion, &args_bufsize, new_arg);
+		if (s->position > 0) {
+			char* string = get_string(s);
+			if (!string) {
+				free(args);
+				free(cmd);
+				return NULL;
+			}
+
+			args = append_arg(args, &args_postion, &args_bufsize, string);
 		}
 		args = append_arg(args, &args_postion, &args_bufsize, NULL);
 	}
@@ -197,25 +178,6 @@ command* new_command() {
 	cmd->args = NULL;
 	cmd->redirect_file_name = NULL;
 	return cmd;
-}
-
-char* append_char(char* arg, size_t* new_arg_position, size_t* new_arg_bufsize, char character) {
-	if (!arg) return NULL;
-
-	arg[*new_arg_position] = character;
-	(*new_arg_position)++;
-	
-	if (*new_arg_position >= *new_arg_bufsize) {
-		(*new_arg_bufsize) += ARG_BUFFER_SIZE;
-		char* new_arg = realloc(arg, sizeof(char) * (*new_arg_bufsize));
-		if (!new_arg) {
-			fprintf(stderr, "bhshell: allocation error\n");
-			free(arg);
-			return NULL;
-		}
-		arg = new_arg;
-	}
-	return arg;
 }
 
 void destroy_cmd(command* cmd) {

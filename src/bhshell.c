@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <stdbool.h>
 
+#include "dynamicarr.h"
 #include "input.h"
 #include "bhshell.h"
 
@@ -91,13 +92,13 @@ int bhshell_launch(command* cmd) {
 	} else {
 		if (cmd->redirect_file_name != NULL) {
 			
-			char* buffer = malloc(sizeof(char) * BUF_SIZE);
-			if (!buffer) {
+			str* s = new_str();
+
+			if (!s) {
 				close(redirect_fd[0]);
 				close(redirect_fd[1]);
 				exit(EXIT_FAILURE);
 			}
-			size_t position = 0, buf_size = BUF_SIZE;
 			char temp;
 			
 			close(redirect_fd[1]);
@@ -105,22 +106,22 @@ int bhshell_launch(command* cmd) {
 			if (finished == -1) {
 				close(redirect_fd[0]);
 				close(redirect_fd[1]);
-				free(buffer);
+				destroy_str(s);
 				exit(EXIT_FAILURE);
 			}
 			while (finished != 0) {
-				buffer = append_char(buffer, &position, &buf_size, temp);
+				s = append_char(s, temp);
 
-				if (!buffer) {
+				if (!s) {
 					close(redirect_fd[0]);
 					close(redirect_fd[1]);
 					exit(EXIT_FAILURE);
 				}
 				finished = read(redirect_fd[0], &temp, sizeof(char));
 			}
-			buffer = append_char(buffer, &position, &buf_size, EOF);
+			char* string = get_string(s);
 			
-			if (!buffer) {
+			if (!string) {
 				close(redirect_fd[0]);
 				close(redirect_fd[1]);
 				exit(EXIT_FAILURE);
@@ -131,16 +132,16 @@ int bhshell_launch(command* cmd) {
 			FILE* f = fopen(cmd->redirect_file_name, "w");
 			if (!f) {
 				fprintf(stderr, "Could not open file\n");
-				free(buffer);
+				destroy_str(s);
 				exit(EXIT_FAILURE);
 			}
-			size_t written = fwrite(buffer, position - 1, 1, f);
+			size_t written = fwrite(string, strlen(string), 1, f);
 			if (written == 0) {
 				fprintf(stderr, "Could not write to file\n");
-				free(buffer);
+				free(string);
 				exit(EXIT_FAILURE);
 			}
-			free(buffer);
+			free(string); 
 			fclose(f);
 		}
 
