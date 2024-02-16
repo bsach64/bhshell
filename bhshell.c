@@ -12,6 +12,7 @@
 #include "input.h"
 #include "bhshell.h"
 
+#define BUF_SIZE 64
 
 char* bhshell_builtin_str[] = {
 	"cd",
@@ -69,13 +70,14 @@ int bhshell_launch(command* cmd) {
 	pid = fork();
 	if (pid == 0) {
 		if (cmd->redirect_file_name != NULL) {
+			close(redirect_fd[0]);
 			if (dup2(redirect_fd[1], STDOUT_FILENO) == -1) {
 				fprintf(stderr, "bhshell: Could not redirect stdout to file\n");
 				exit(EXIT_FAILURE);
 			}
-			close(redirect_fd[0]);
 			close(redirect_fd[1]);
 		}
+		
 
 		if (execvp(cmd->args[0], cmd->args) == -1) {
 			perror("bhshell");
@@ -88,29 +90,58 @@ int bhshell_launch(command* cmd) {
 		perror("bhshell: Could not create child process");
 	} else {
 		if (cmd->redirect_file_name != NULL) {
-			pid_t write_pid = fork();
 			
-			if (write_pid == -1) {
-				perror("bhshell");
-				exit(EXIT_FAILURE);
-			}
-
-			if (write_pid == 0) {
-				int file = open(cmd->redirect_file_name, O_WRONLY | O_CREAT, 0777);
-				
-				if (file == -1) {
-					close(redirect_fd[0]);
-					exit(EXIT_FAILURE);
-				}
-				if (dup2(redirect_fd[0], file) == -1) {
-					close(file);
-					close(redirect_fd[0]);
-				}
-				close(file);
+			char* buffer = malloc(sizeof(char) * BUF_SIZE);
+			if (!buffer) {
 				close(redirect_fd[0]);
 				close(redirect_fd[1]);
+				exit(EXIT_FAILURE);
+			}
+			size_t position = 0, buf_size = BUF_SIZE;
+			char temp;
+			
+			close(redirect_fd[1]);
+			int finished = read(redirect_fd[0], &temp, sizeof(char));
+			if (finished == -1) {
+				close(redirect_fd[0]);
+				close(redirect_fd[1]);
+				free(buffer);
+				exit(EXIT_FAILURE);
+			}
+			while (finished != 0) {
+				buffer = append_char(buffer, &position, &buf_size, temp);
+
+				if (!buffer) {
+					close(redirect_fd[0]);
+					close(redirect_fd[1]);
+					exit(EXIT_FAILURE);
+				}
+				finished = read(redirect_fd[0], &temp, sizeof(char));
+			}
+			buffer = append_char(buffer, &position, &buf_size, EOF);
+			
+			if (!buffer) {
+				close(redirect_fd[0]);
+				close(redirect_fd[1]);
+				exit(EXIT_FAILURE);
 			}
 			
+			close(redirect_fd[0]);
+
+			FILE* f = fopen(cmd->redirect_file_name, "w");
+			if (!f) {
+				fprintf(stderr, "Could not open file\n");
+				free(buffer);
+				exit(EXIT_FAILURE);
+			}
+			size_t written = fwrite(buffer, position - 1, 1, f);
+			if (written == 0) {
+				fprintf(stderr, "Could not write to file\n");
+				free(buffer);
+				exit(EXIT_FAILURE);
+			}
+			free(buffer);
+			fclose(f);
 		}
 
 		do {
@@ -118,10 +149,6 @@ int bhshell_launch(command* cmd) {
 		} while(!WIFEXITED(status) && !WIFSIGNALED(status));
 	}
 
-	if(cmd->redirect_file_name != NULL) {
-		close(redirect_fd[0]);
-		close(redirect_fd[1]);
-	}
 	return 1;
 }
 

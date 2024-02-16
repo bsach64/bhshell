@@ -155,6 +155,10 @@ command* bhshell_parse(char* line) {
 	}
 
 	if (cmd->redirect_file_name == NULL) {
+		if (new_arg_position > 0) {
+			new_arg = append_char(new_arg, &new_arg_position, &new_arg_bufsize, '\0');
+			args = append_arg(args, &args_postion, &args_bufsize, new_arg);
+		}
 		args = append_arg(args, &args_postion, &args_bufsize, NULL);
 	}
 
