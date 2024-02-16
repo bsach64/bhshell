@@ -33,10 +33,18 @@ void bhshell_loop() {
 
 	do {
 		char* dir = getcwd(NULL, 0);
+		if (!dir) exit(EXIT_FAILURE);
+
 		printf("[%s] $ ", dir);
+
 		char* line = bhshell_read_line();
+		if (!line) exit(EXIT_FAILURE);
+
 		command* cmd = bhshell_parse(line);
+		if (!cmd) exit(EXIT_FAILURE);
+
 		status = bhshell_execute(cmd); 
+		
 		free(dir);
 		free(line);
 		destroy_cmd(cmd);
@@ -84,8 +92,9 @@ int bhshell_launch(command* cmd) {
 			perror("bhshell");
 		}
 		// execvp takes over the entire process
-		// so if return backs to this process it has errored
+		// so if return backs to the child process
 		exit(EXIT_FAILURE);
+
 	} else if (pid < 0) {
 		// error forking
 		perror("bhshell: Could not create child process");

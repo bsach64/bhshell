@@ -9,7 +9,7 @@
 str* new_str() {
 	str* s = malloc(sizeof(str));
 	if (!s) {
-		fprintf(stderr, "allocation error\n");
+		fprintf(stderr, "bhshell: allocation error\n");
 		return NULL;
 	}
 	s->bufsize = STR_BUFSIZE;
@@ -17,7 +17,7 @@ str* new_str() {
 
 	if (!s->string) {
 		free(s);
-		fprintf(stderr, "allocation error\n");
+		fprintf(stderr, "bhshell: allocation error\n");
 		return NULL;
 	}
 	s->position = 0;

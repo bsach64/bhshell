@@ -15,9 +15,12 @@ char* bhshell_read_line() {
 		int c = getchar();
 		if (c == '\n' || c == EOF) {
 			char* string = get_string(s);
+			if (!string) return NULL;
+			
 			return string;
 		} else {
 			s = append_char(s, c);
+			if (!s) return NULL;
 		}
 	}
 }
@@ -33,14 +36,15 @@ command* bhshell_parse(char* line) {
 
 	if (!args) {
 		fprintf(stderr, "bhshell: allocation error\n");
-		free(cmd);
+		destroy_cmd(cmd);
 		return NULL;
 	}
 	
 	str* s = new_str();
+
 	if (!s) {
 		fprintf(stderr, "bhshell: allocation error\n");
-		free(cmd);
+		destroy_cmd(cmd);
 		return NULL;
 	}
 
@@ -50,50 +54,60 @@ command* bhshell_parse(char* line) {
 				char* string = get_string(s);
 				
 				if (!string) {
-					free(args);
-					free(cmd);
+					destroy_cmd(cmd);
+					destroy_args(args);
 					return NULL;
 				}
 
 				args = append_arg(args, &args_postion, &args_bufsize, string);
 				
 				if (!args) {
+					destroy_cmd(cmd);
 					return NULL;
 				}
 				
 				s = new_str();
 				
 				if (!s) {
-					free(args);
-					free(cmd);
+					destroy_cmd(cmd);
+					destroy_args(args);
 					return NULL;
 				}
-			} else {
-				continue;
 			}
+			continue;
+			
 		} else if (line[i] == '>') {
 			if (s->position > 0) {
 				char* string = get_string(s);
 				
 				if (!string) {
-					free(args);
-					free(cmd);
+					destroy_cmd(cmd);
+					destroy_args(args);
 					return NULL;
 				}
+
 				args = append_arg(args, &args_postion, &args_bufsize, string);
-				if (!args) return NULL;
+
+				if (!args) {
+					destroy_cmd(cmd);
+					return NULL;
+				}
+
 			} else {
 				destroy_str(s);
 			}
 
 			args = append_arg(args, &args_postion, &args_bufsize, NULL);
-			if (!args) return NULL;
+			if (!args) {
+				destroy_cmd(cmd);
+				return NULL;
+			}
 
 			s = new_str();
 			
 			if (!s) {
-				free(args);
-				free(cmd);
+				destroy_cmd(cmd);
+				destroy_args(args);
 				return NULL;
 			}
 
@@ -104,26 +118,27 @@ command* bhshell_parse(char* line) {
 				s = append_char(s, line[j]);
 
 				if (!s) {
-					free(args);
-					free(cmd);
+					destroy_cmd(cmd);
+					destroy_args(args);
 					return NULL;
 				}
 			}
 			char* string = get_string(s);
 
 			if (!string) {
-				free(args);
-				free(cmd);
+				destroy_cmd(cmd);
+				destroy_args(args);
 				return NULL;
 			}
+
 			cmd->redirect_file_name = string;
 			break;
 		} else {
 			s = append_char(s, line[i]);
 			
 			if (!s) {
-				free(args);
-				free(cmd);
+				destroy_cmd(cmd);
+				destroy_args(args);
 				return NULL;
 			}
 		}
@@ -133,14 +148,23 @@ command* bhshell_parse(char* line) {
 		if (s->position > 0) {
 			char* string = get_string(s);
 			if (!string) {
-				free(args);
-				free(cmd);
+				destroy_cmd(cmd);
+				destroy_args(args);
 				return NULL;
 			}
 
 			args = append_arg(args, &args_postion, &args_bufsize, string);
+
+			if (!args) {
+				destroy_cmd(cmd);
+				return NULL;
+			}
 		}
 		args = append_arg(args, &args_postion, &args_bufsize, NULL);
+		if (!args) {
+			destroy_cmd(cmd);
+			return NULL;
+		}
 	}
 
 	cmd->args = args;
@@ -171,6 +195,7 @@ char** append_arg(char** args, size_t* args_position, size_t* args_bufsize, char
 
 command* new_command() {
 	command* cmd = malloc(sizeof(command));
+	
 	if (!cmd) {
 		fprintf(stderr, "bhshell: allocation error\n");
 		return NULL;
@@ -181,10 +206,14 @@ command* new_command() {
 }
 
 void destroy_cmd(command* cmd) {
+	destroy_args(cmd->args);
+	free(cmd);
+}
+
+void destroy_args(char** args) {
 	size_t i = 0;
-	while (cmd->args[i] != NULL) {
-		free(cmd->args[i]);
+	while (args[i] != NULL) {
+		free(args[i]);
 		i++;
 	}
-	free(cmd);
 }
