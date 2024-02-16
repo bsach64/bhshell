@@ -1,3 +1,3 @@
 #!/bin/sh
 
-cc main.c bhshell.c input.c -o bhshell -Wall -Wextra
+cc src/main.c src/bhshell.c src/input.c -o bhshell -Wall -Wextra
