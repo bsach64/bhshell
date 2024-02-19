@@ -10,7 +10,6 @@
 
 #define FREE_ON_ERR(F) if (!F) {\
 	destroy_cmd(cmd);\
-	destroy_args(args);\
 	return NULL;\
 }
 
@@ -38,37 +37,23 @@ command* bhshell_parse(char* line) {
 
 	size_t line_length = strlen(line);
 
-	char** args = malloc(ARG_LIST_BUFFER_SIZE * sizeof(char*));
+	cmd->args = malloc(ARG_LIST_BUFFER_SIZE * sizeof(char*));
 	size_t args_postion = 0, args_bufsize = ARG_LIST_BUFFER_SIZE;
 
-	if (!args) {
-		destroy_cmd(cmd);
-		return NULL;
-	}
+	FREE_ON_ERR(cmd->args);
 	
 	str* s = new_str();
 
-	if (!s) {
-		destroy_cmd(cmd);
-		return NULL;
-	}
+	FREE_ON_ERR(s);
 
 	for (size_t i = 0; i < line_length; i++) {
 		if (line[i] == ' ' || line[i] == '\n' || line[i] == '\t' || line[i] == '\r') {
 			if (s->position > 0) {
 				char* string = get_string(s);
-		
 				FREE_ON_ERR(string);
-
-				args = append_arg(args, &args_postion, &args_bufsize, string);
-				
-				if (!args) {
-					destroy_cmd(cmd);
-					return NULL;
-				}
-				
+				cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, string);
+				FREE_ON_ERR(cmd->args);
 				s = new_str();
-
 				FREE_ON_ERR(s);
 			}
 			continue;
@@ -76,26 +61,16 @@ command* bhshell_parse(char* line) {
 		} else if (line[i] == '>') {
 			if (s->position > 0) {
 				char* string = get_string(s);
-				printf("%s\n", string);
 				FREE_ON_ERR(string);
-
-				args = append_arg(args, &args_postion, &args_bufsize, string);
-
-				if (!args) {
-					destroy_cmd(cmd);
-					return NULL;
-				}
-
+				cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, string);
+				FREE_ON_ERR(cmd->args);
 			} else {
 				destroy_str(s);
 			}
 
-			args = append_arg(args, &args_postion, &args_bufsize, NULL);
+			cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, NULL);
 
-			if (!args) {
-				destroy_cmd(cmd);
-				return NULL;
-			}
+			FREE_ON_ERR(cmd->args);
 
 			s = new_str();
 			
@@ -138,23 +113,16 @@ command* bhshell_parse(char* line) {
 	if (cmd->redirect_file_name == NULL) {
 		if (s->position > 0) {
 			char* string = get_string(s);
+			
 			FREE_ON_ERR(string);
 
-			args = append_arg(args, &args_postion, &args_bufsize, string);
-
-			if (!args) {
-				destroy_cmd(cmd);
-				return NULL;
-			}
+			cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, string);
+			FREE_ON_ERR(cmd->args);
 		}
-		args = append_arg(args, &args_postion, &args_bufsize, NULL);
-		if (!args) {
-			destroy_cmd(cmd);
-			return NULL;
-		}
+		cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, NULL);
+		FREE_ON_ERR(cmd->args);
 	}
 
-	cmd->args = args;
 	return cmd;
 }
 

@@ -3,7 +3,6 @@
 #ifndef DYNAMICARR_H
 #define DYNAMICARR_H
 
-
 typedef struct str {
 	char* string;
 	size_t position;
