@@ -8,6 +8,13 @@
 
 #define ARG_LIST_BUFFER_SIZE 10
 
+#define FREE_ON_ERR(F) if (!F) {\
+	destroy_cmd(cmd);\
+	destroy_args(args);\
+	return NULL;\
+}
+
+
 char* bhshell_read_line() {
 	str* s = new_str();
 	if (!s) return NULL;
@@ -35,7 +42,6 @@ command* bhshell_parse(char* line) {
 	size_t args_postion = 0, args_bufsize = ARG_LIST_BUFFER_SIZE;
 
 	if (!args) {
-		fprintf(stderr, "bhshell: allocation error\n");
 		destroy_cmd(cmd);
 		return NULL;
 	}
@@ -43,7 +49,6 @@ command* bhshell_parse(char* line) {
 	str* s = new_str();
 
 	if (!s) {
-		fprintf(stderr, "bhshell: allocation error\n");
 		destroy_cmd(cmd);
 		return NULL;
 	}
@@ -52,12 +57,8 @@ command* bhshell_parse(char* line) {
 		if (line[i] == ' ' || line[i] == '\n' || line[i] == '\t' || line[i] == '\r') {
 			if (s->position > 0) {
 				char* string = get_string(s);
-				
-				if (!string) {
-					destroy_cmd(cmd);
-					destroy_args(args);
-					return NULL;
-				}
+		
+				FREE_ON_ERR(string);
 
 				args = append_arg(args, &args_postion, &args_bufsize, string);
 				
@@ -67,24 +68,16 @@ command* bhshell_parse(char* line) {
 				}
 				
 				s = new_str();
-				
-				if (!s) {
-					destroy_cmd(cmd);
-					destroy_args(args);
-					return NULL;
-				}
+
+				FREE_ON_ERR(s);
 			}
 			continue;
 			
 		} else if (line[i] == '>') {
 			if (s->position > 0) {
 				char* string = get_string(s);
-				
-				if (!string) {
-					destroy_cmd(cmd);
-					destroy_args(args);
-					return NULL;
-				}
+				printf("%s\n", string);
+				FREE_ON_ERR(string);
 
 				args = append_arg(args, &args_postion, &args_bufsize, string);
 
@@ -98,6 +91,7 @@ command* bhshell_parse(char* line) {
 			}
 
 			args = append_arg(args, &args_postion, &args_bufsize, NULL);
+
 			if (!args) {
 				destroy_cmd(cmd);
 				return NULL;
@@ -105,53 +99,46 @@ command* bhshell_parse(char* line) {
 
 			s = new_str();
 			
-			if (!s) {
+			FREE_ON_ERR(s);
+				
+			if (i + 1 >= line_length) {
 				destroy_cmd(cmd);
-				destroy_args(args);
+				destroy_str(s);
 				return NULL;
 			}
-
+			
 			for (size_t j = i + 1; j < line_length; j++) {
 				if (s->position == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r')) {
 					continue;
 				}
 				s = append_char(s, line[j]);
 
-				if (!s) {
-					destroy_cmd(cmd);
-					destroy_args(args);
-					return NULL;
-				}
+				FREE_ON_ERR(s);
 			}
-			char* string = get_string(s);
-
-			if (!string) {
+			
+			if (s->position == 0) {
 				destroy_cmd(cmd);
-				destroy_args(args);
+				destroy_str(s);
 				return NULL;
 			}
+
+			char* string = get_string(s);
+
+			FREE_ON_ERR(string);
 
 			cmd->redirect_file_name = string;
 			break;
 		} else {
 			s = append_char(s, line[i]);
 			
-			if (!s) {
-				destroy_cmd(cmd);
-				destroy_args(args);
-				return NULL;
-			}
+			FREE_ON_ERR(s);
 		}
 	}
 
 	if (cmd->redirect_file_name == NULL) {
 		if (s->position > 0) {
 			char* string = get_string(s);
-			if (!string) {
-				destroy_cmd(cmd);
-				destroy_args(args);
-				return NULL;
-			}
+			FREE_ON_ERR(string);
 
 			args = append_arg(args, &args_postion, &args_bufsize, string);
 
@@ -216,4 +203,5 @@ void destroy_args(char** args) {
 		free(args[i]);
 		i++;
 	}
+	free(args);
 }

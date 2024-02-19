@@ -41,7 +41,10 @@ void bhshell_loop() {
 		if (!line) exit(EXIT_FAILURE);
 
 		command* cmd = bhshell_parse(line);
-		if (!cmd) exit(EXIT_FAILURE);
+		if (cmd == NULL) {
+			printf("Invalid Command\n");
+			continue;
+		}
 
 		status = bhshell_execute(cmd); 
 		
