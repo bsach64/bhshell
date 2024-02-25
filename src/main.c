@@ -8,6 +8,5 @@
 
 int main(void) {
 	bhshell_loop();	
-
 	return EXIT_SUCCESS;
 }

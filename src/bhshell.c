@@ -78,6 +78,13 @@ int bhshell_launch(command* cmd) {
 			exit(EXIT_FAILURE);
 		}
 	}
+	
+	int piper_fd[2];
+	if (cmd->pipe_args != NULL) {
+		if (pipe(piper_fd) == -1) {
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	pid = fork();
 	if (pid == 0) {
@@ -90,7 +97,6 @@ int bhshell_launch(command* cmd) {
 			close(redirect_fd[1]);
 		}
 		
-
 		if (execvp(cmd->args[0], cmd->args) == -1) {
 			perror("bhshell");
 		}

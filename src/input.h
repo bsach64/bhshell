@@ -5,6 +5,7 @@
 
 typedef struct {
 	char** args;
+	char** pipe_args;
 	char* redirect_file_name;
 } command;
 

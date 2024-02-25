@@ -103,6 +103,58 @@ command* bhshell_parse(char* line) {
 
 			cmd->redirect_file_name = string;
 			break;
+		} else if (line[i] == '|') {
+			cmd->pipe_args = malloc(ARG_LIST_BUFFER_SIZE * sizeof(char*));
+			size_t pipe_args_postion = 0, pipe_args_bufsize = ARG_LIST_BUFFER_SIZE;
+			
+			if (s->position > 0) {
+				char* string = get_string(s);
+				FREE_ON_ERR(string);
+				cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, string);
+				FREE_ON_ERR(cmd->args);
+			} else {
+				destroy_str(s);
+			}
+
+			cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, NULL);
+
+			FREE_ON_ERR(cmd->args);
+
+			s = new_str();
+			
+			FREE_ON_ERR(s);
+				
+			if (i + 1 >= line_length) {
+				destroy_cmd(cmd);
+				destroy_str(s);
+				return NULL;
+			}
+
+			for (size_t j = i + 1; j < line_length; j++) {
+				if (s->position == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r')) {
+					continue;
+				} else if (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r') {
+					char* string = get_string(s);
+					FREE_ON_ERR(string);
+					cmd->pipe_args = append_arg(cmd->pipe_args, &pipe_args_postion, &pipe_args_bufsize, string);
+
+					FREE_ON_ERR(cmd->pipe_args);
+
+					s = new_str();
+					
+					FREE_ON_ERR(s);
+				} else {
+					s = append_char(s, line[j]);
+				}
+			}
+			if (s->position > 0) {
+				char* string = get_string(s);
+				FREE_ON_ERR(string);
+				cmd->pipe_args = append_arg(cmd->pipe_args, &pipe_args_postion, &pipe_args_bufsize, string);
+			}
+
+			cmd->pipe_args = append_arg(cmd->pipe_args, &pipe_args_postion, &pipe_args_bufsize, NULL);
+			break;
 		} else {
 			s = append_char(s, line[i]);
 			
@@ -110,7 +162,7 @@ command* bhshell_parse(char* line) {
 		}
 	}
 
-	if (cmd->redirect_file_name == NULL) {
+	if (cmd->redirect_file_name == NULL && cmd->pipe_args == NULL) {
 		if (s->position > 0) {
 			char* string = get_string(s);
 			
@@ -138,7 +190,6 @@ char** append_arg(char** args, size_t* args_position, size_t* args_bufsize, char
 		(*args_bufsize) += ARG_LIST_BUFFER_SIZE;
 		char** new_args = realloc(args, sizeof(char*) * (*args_bufsize));
 		if (!new_args) {
-			fprintf(stderr, "bhshell: allocation error\n");
 			free(args);
 			return NULL;
 		}
@@ -151,17 +202,17 @@ char** append_arg(char** args, size_t* args_position, size_t* args_bufsize, char
 command* new_command() {
 	command* cmd = malloc(sizeof(command));
 	
-	if (!cmd) {
-		fprintf(stderr, "bhshell: allocation error\n");
-		return NULL;
-	}
+	if (!cmd) return NULL;
+	
 	cmd->args = NULL;
+	cmd->pipe_args = NULL;
 	cmd->redirect_file_name = NULL;
 	return cmd;
 }
 
 void destroy_cmd(command* cmd) {
 	destroy_args(cmd->args);
+	destroy_args(cmd->pipe_args);
 	free(cmd);
 }
 

@@ -16,7 +16,7 @@ So,`ls > file.txt` works.
 - [ ] Rewrite for better organisation and error handling
     - [x] Implement a macro for freeing memory
 - [x] prompt shows current working directory
-- [x] Understand how creating processes actually works
+- [ ] Understand how creating processes actually works
 - [ ] Remove `exit(EXIT_FAILURE)`
 - [ ] Rewrite a Parser {Basically}
     - [x] Simulate the ">" operator of $BASH
