@@ -1,67 +1,37 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "dynamicarr.h"
-
-#define STR_BUFSIZE 32
-
-str* new_str() {
-	str* s = malloc(sizeof(str));
-	if (!s) {
-		fprintf(stderr, "bhshell: allocation error\n");
-		return NULL;
-	}
-	s->bufsize = STR_BUFSIZE;
-	s->string = malloc(sizeof(char) * STR_BUFSIZE);
-
-	if (!s->string) {
-		free(s);
-		fprintf(stderr, "bhshell: allocation error\n");
-		return NULL;
-	}
-	s->position = 0;
-	return s;
-}
-
-str* append_char(str* s, char c) {
-
-	if (!s) return NULL;
-
-	s->string[s->position] = c;
-	(s->position)++;
-	
-	if (s->position >= s->bufsize) {
-		(s->bufsize) += STR_BUFSIZE;
-		char* new_string = realloc(s->string, sizeof(char) * (s->bufsize));
-		if (!new_string) {
-			fprintf(stderr, "bhshell: allocation error\n");
-			destroy_str(s);
-			return NULL;
-		}
-		s->string = new_string;
-	}
-	return s;
-}
-
-void destroy_str(str* s) {
-	free(s->string);
-	free(s);
-}
-
+#include "xalloc.h"
+//
 char* get_string(str* s) {
-	s = append_char(s, '\0');
-	
-	if (!s) return NULL;
+	da_append(s, '\0');
+	char* string = xmalloc(sizeof(char) * (s->position));
+	memcpy(string, s->items, sizeof(char) * s->position);
+	free(s->items);
+	return string;
+}
 
-	char* string = malloc(sizeof(char) * (s->position));
 
-	if (!string) {
-		destroy_str(s);
+void destroy_args(char** args) {
+	if (!args) return;
+	size_t i = 0;
+	while(args[i] != NULL) {
+		free(args[i]);
+	}
+	free(args);
+}
+
+char** get_args(arg_list l) {
+	if (l.position == 0) {
 		return NULL;
 	}
-
-	memcpy(string, s->string, sizeof(char) * s->position);
-	destroy_str(s);
-	return string;
+	da_append(&l, NULL);
+	char** args = xmalloc(sizeof(char*) * (l.position));
+	for (size_t i = 0; i < l.position - 1; i++) {
+		size_t length = strlen(l.items[i]);
+		args[i] = xmalloc(sizeof(char) * (length + 1));
+		memcpy(args[i], l.items[i], length + 1);
+	}
+	args[l.position - 1] = NULL;
+	return args;
 }

@@ -5,204 +5,138 @@
 
 #include "input.h"
 #include "dynamicarr.h"
-
-#define ARG_LIST_BUFFER_SIZE 10
-
-#define FREE_ON_ERR(F) if (!F) {\
-	destroy_cmd(cmd);\
-	return NULL;\
-}
-
+#include "xalloc.h"
 
 char* bhshell_read_line() {
-	str* s = new_str();
-	if (!s) return NULL;
+	str s = { DA_NULL };
 	while(1) {
 		int c = getchar();
 		if (c == '\n' || c == EOF) {
-			char* string = get_string(s);
-			if (!string) return NULL;
-			
+			char* string = get_string(&s);
 			return string;
 		} else {
-			s = append_char(s, c);
-			if (!s) return NULL;
+			da_append(&s, c);
 		}
 	}
 }
 
 command* bhshell_parse(char* line) {
 	command* cmd = new_command();
-	if (!cmd) return NULL;
-
 	size_t line_length = strlen(line);
-
-	cmd->args = malloc(ARG_LIST_BUFFER_SIZE * sizeof(char*));
-	size_t args_postion = 0, args_bufsize = ARG_LIST_BUFFER_SIZE;
-
-	FREE_ON_ERR(cmd->args);
 	
-	str* s = new_str();
+	if (line_length == 0) {
+		return cmd;
+	}
 
-	FREE_ON_ERR(s);
+	arg_list args = { DA_NULL };
+	str s = { DA_NULL };	
 
 	for (size_t i = 0; i < line_length; i++) {
 		if (line[i] == ' ' || line[i] == '\n' || line[i] == '\t' || line[i] == '\r') {
-			if (s->position > 0) {
-				char* string = get_string(s);
-				FREE_ON_ERR(string);
-				cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, string);
-				FREE_ON_ERR(cmd->args);
-				s = new_str();
-				FREE_ON_ERR(s);
+			if (s.position > 0) {
+				char* string = get_string(&s);
+				da_append(&args, string);
+				s.bufsize = 0; s.position = 0; s.items = NULL;
 			}
 			continue;
-			
 		} else if (line[i] == '>') {
-			if (s->position > 0) {
-				char* string = get_string(s);
-				FREE_ON_ERR(string);
-				cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, string);
-				FREE_ON_ERR(cmd->args);
+			if (s.position > 0) {
+				char* string = get_string(&s);
+				printf("%s\n", string);
+				da_append(&args, string);
 			} else {
-				destroy_str(s);
+				free(s.items);
 			}
-
-			cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, NULL);
-
-			FREE_ON_ERR(cmd->args);
-
-			s = new_str();
 			
-			FREE_ON_ERR(s);
-				
+			da_append(&args, NULL);
+
+			s.bufsize = 0; s.position = 0; s.items = NULL;
+			
 			if (i + 1 >= line_length) {
 				destroy_cmd(cmd);
-				destroy_str(s);
+				free(s.items);
 				return NULL;
 			}
 			
 			for (size_t j = i + 1; j < line_length; j++) {
-				if (s->position == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r')) {
+				if (s.position == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r')) {
 					continue;
 				}
-				s = append_char(s, line[j]);
-
-				FREE_ON_ERR(s);
+				da_append(&s, line[j]);
 			}
 			
-			if (s->position == 0) {
+			if (s.position == 0) {
 				destroy_cmd(cmd);
-				destroy_str(s);
 				return NULL;
 			}
 
-			char* string = get_string(s);
-
-			FREE_ON_ERR(string);
+			char* string = get_string(&s);
 
 			cmd->redirect_file_name = string;
-			break;
+			cmd->args = args.items;
+			return cmd;
 		} else if (line[i] == '|') {
-			cmd->pipe_args = malloc(ARG_LIST_BUFFER_SIZE * sizeof(char*));
-			size_t pipe_args_postion = 0, pipe_args_bufsize = ARG_LIST_BUFFER_SIZE;
-			
-			if (s->position > 0) {
-				char* string = get_string(s);
-				FREE_ON_ERR(string);
-				cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, string);
-				FREE_ON_ERR(cmd->args);
+			arg_list pipe_args = { DA_NULL };
+			if (s.position > 0) {
+				char* string = get_string(&s);
+				da_append(&args, string);
 			} else {
-				destroy_str(s);
+				free(s.items);
+				s.bufsize = 0; s.position = 0; s.items = NULL;
 			}
-
-			cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, NULL);
-
-			FREE_ON_ERR(cmd->args);
-
-			s = new_str();
 			
-			FREE_ON_ERR(s);
-				
+			da_append(&args, NULL);
+
+			free(s.items);
+			s.bufsize = 0; s.position = 0; s.items = NULL;
 			if (i + 1 >= line_length) {
 				destroy_cmd(cmd);
-				destroy_str(s);
+				free(s.items);
 				return NULL;
 			}
 
 			for (size_t j = i + 1; j < line_length; j++) {
-				if (s->position == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r')) {
+				if (s.position == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r')) {
 					continue;
 				} else if (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r') {
-					char* string = get_string(s);
-					FREE_ON_ERR(string);
-					cmd->pipe_args = append_arg(cmd->pipe_args, &pipe_args_postion, &pipe_args_bufsize, string);
-
-					FREE_ON_ERR(cmd->pipe_args);
-
-					s = new_str();
-					
-					FREE_ON_ERR(s);
+					char* string = get_string(&s);
+					da_append(&pipe_args, string);
+					free(s.items);
+					s.bufsize = 0; s.position = 0; s.items = NULL;
 				} else {
-					s = append_char(s, line[j]);
+					da_append(&s, line[j]);
 				}
 			}
-			if (s->position > 0) {
-				char* string = get_string(s);
-				FREE_ON_ERR(string);
-				cmd->pipe_args = append_arg(cmd->pipe_args, &pipe_args_postion, &pipe_args_bufsize, string);
+			if (s.position > 0) {
+				char* string = get_string(&s);
+				da_append(&pipe_args, string);
+			} else {
+				destroy_cmd(cmd);
+				return NULL;
 			}
 
-			cmd->pipe_args = append_arg(cmd->pipe_args, &pipe_args_postion, &pipe_args_bufsize, NULL);
-			break;
+			da_append(&pipe_args, NULL);
+			cmd->args = args.items;
+			cmd->pipe_args = pipe_args.items;
+			return cmd;
 		} else {
-			s = append_char(s, line[i]);
-			
-			FREE_ON_ERR(s);
+			da_append(&s, line[i]);
 		}
 	}
 
 	if (cmd->redirect_file_name == NULL && cmd->pipe_args == NULL) {
-		if (s->position > 0) {
-			char* string = get_string(s);
-			
-			FREE_ON_ERR(string);
-
-			cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, string);
-			FREE_ON_ERR(cmd->args);
+		if (s.position > 0) {
+			char* string = get_string(&s);
+			da_append(&args, string);
 		}
-		cmd->args = append_arg(cmd->args, &args_postion, &args_bufsize, NULL);
-		FREE_ON_ERR(cmd->args);
+		da_append(&args, NULL);
+		cmd->args = args.items;
 	}
-
 	return cmd;
 }
 
-char** append_arg(char** args, size_t* args_position, size_t* args_bufsize, char* arg) {
-	if (!args) {
-		return NULL;
-	}
-
-	args[*args_position] = arg;
-	(*args_position)++;
-	
-	if (*args_position >= *args_bufsize) {
-		(*args_bufsize) += ARG_LIST_BUFFER_SIZE;
-		char** new_args = realloc(args, sizeof(char*) * (*args_bufsize));
-		if (!new_args) {
-			free(args);
-			return NULL;
-		}
-		args = new_args;
-	}
-	return args;
-}
-
-
 command* new_command() {
-	command* cmd = malloc(sizeof(command));
-	
-	if (!cmd) return NULL;
+	command* cmd = xmalloc(sizeof(command));
 	
 	cmd->args = NULL;
 	cmd->pipe_args = NULL;
@@ -214,13 +148,4 @@ void destroy_cmd(command* cmd) {
 	destroy_args(cmd->args);
 	destroy_args(cmd->pipe_args);
 	free(cmd);
-}
-
-void destroy_args(char** args) {
-	size_t i = 0;
-	while (args[i] != NULL) {
-		free(args[i]);
-		i++;
-	}
-	free(args);
 }

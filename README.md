@@ -14,13 +14,15 @@ So,`ls > file.txt` works.
 
 ## TODO
 - [ ] Rewrite for better organisation and error handling
-    - [x] Implement a macro for freeing memory
+    - [x] Rewrite to use xmalloc
+    - [ ] Add tests
 - [x] prompt shows current working directory
 - [ ] Understand how creating processes actually works
-- [ ] Remove `exit(EXIT_FAILURE)`
-- [ ] Rewrite a Parser {Basically}
+- [x] Remove `exit(EXIT_FAILURE)`
+- [ ] Rewrite the Parser {Basically}
     - [x] Simulate the ">" operator of $BASH
     - [ ] Support multiple ">" {allowing for `ls > file1.txt > file2.txt`}
     - [ ] Simulate the "|" operator of $BASH
+- [ ] Maybe
     - [ ] Escape characters etc {echo "wow" should print wow instead of "wow"}
     - [ ] Implement some level of globbing (Meaning *.txt means all .txt files in the current dir)

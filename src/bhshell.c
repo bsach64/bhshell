@@ -12,6 +12,7 @@
 #include "dynamicarr.h"
 #include "input.h"
 #include "bhshell.h"
+#include "xalloc.h"
 
 #define BUF_SIZE 64
 
@@ -38,8 +39,6 @@ void bhshell_loop() {
 		printf("[%s] $ ", dir);
 
 		char* line = bhshell_read_line();
-		if (!line) exit(EXIT_FAILURE);
-
 		command* cmd = bhshell_parse(line);
 		if (cmd == NULL) {
 			printf("Invalid Command\n");
@@ -50,7 +49,7 @@ void bhshell_loop() {
 		
 		free(dir);
 		free(line);
-		destroy_cmd(cmd);
+		// destroy_cmd(cmd);
 
 	} while(status); 
 }
@@ -110,13 +109,8 @@ int bhshell_launch(command* cmd) {
 	} else {
 		if (cmd->redirect_file_name != NULL) {
 			
-			str* s = new_str();
+			str s = { DA_NULL };
 
-			if (!s) {
-				close(redirect_fd[0]);
-				close(redirect_fd[1]);
-				exit(EXIT_FAILURE);
-			}
 			char temp;
 			
 			close(redirect_fd[1]);
@@ -124,33 +118,22 @@ int bhshell_launch(command* cmd) {
 			if (finished == -1) {
 				close(redirect_fd[0]);
 				close(redirect_fd[1]);
-				destroy_str(s);
+				free(s.items);
 				exit(EXIT_FAILURE);
 			}
 			while (finished != 0) {
-				s = append_char(s, temp);
+				da_append(&s, temp);
 
-				if (!s) {
-					close(redirect_fd[0]);
-					close(redirect_fd[1]);
-					exit(EXIT_FAILURE);
-				}
 				finished = read(redirect_fd[0], &temp, sizeof(char));
 			}
-			char* string = get_string(s);
-			
-			if (!string) {
-				close(redirect_fd[0]);
-				close(redirect_fd[1]);
-				exit(EXIT_FAILURE);
-			}
+			char* string = get_string(&s);
 			
 			close(redirect_fd[0]);
 
 			FILE* f = fopen(cmd->redirect_file_name, "w");
 			if (!f) {
 				fprintf(stderr, "Could not open file\n");
-				destroy_str(s);
+				free(s.items);
 				exit(EXIT_FAILURE);
 			}
 			size_t written = fwrite(string, strlen(string), 1, f);
