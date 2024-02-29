@@ -7,6 +7,17 @@
 #include "dynamicarr.h"
 #include "xalloc.h"
 
+enum ARG_TYPE {
+	ARG,
+	PIPE_ARG,
+	REDIRECT
+};
+
+#define FREE_ARGS \
+	do {\
+	\
+	} while(0)
+
 char* bhshell_read_line() {
 	str s = { DA_NULL };
 	while(1) {
@@ -21,116 +32,81 @@ char* bhshell_read_line() {
 }
 
 command* bhshell_parse(char* line) {
-	command* cmd = new_command();
-	size_t line_length = strlen(line);
-	
-	if (line_length == 0) {
-		return cmd;
-	}
-
+	size_t length = strlen(line);
 	arg_list args = { DA_NULL };
-	str s = { DA_NULL };	
+	arg_list pipe_args = { DA_NULL };
+	str s = { DA_NULL };
+	char* redirect = NULL;
+	enum ARG_TYPE current = ARG;
+	command* cmd = new_command();
 
-	for (size_t i = 0; i < line_length; i++) {
-		if (line[i] == ' ' || line[i] == '\n' || line[i] == '\t' || line[i] == '\r') {
+	for (size_t i = 0; i < length; i++) {
+		if (line[i] == '\n' || line[i] == '\t' || line[i] == ' ') {
 			if (s.position > 0) {
 				char* string = get_string(&s);
-				da_append(&args, string);
-				s.bufsize = 0; s.position = 0; s.items = NULL;
-			}
+				if (current == ARG) {
+					da_append(&args, string);
+				} else if (current == PIPE_ARG) {
+					da_append(&pipe_args, string);
+				} else {
+					redirect = string;	
+				}
+			} 
 			continue;
+		} else if (line[i] == '|') {
+			if (s.position > 0) {
+				char* string = get_string(&s);
+				if (current == ARG) {
+					da_append(&args, string);
+					da_append(&args, NULL);
+				} else {
+					return NULL;
+				}
+			}
+			if (i + 1 < length && line[i] == '>') {
+				return NULL;
+			}
+			current = PIPE_ARG;
 		} else if (line[i] == '>') {
 			if (s.position > 0) {
 				char* string = get_string(&s);
-				printf("%s\n", string);
-				da_append(&args, string);
-			} else {
-				free(s.items);
-			}
-			
-			da_append(&args, NULL);
-
-			s.bufsize = 0; s.position = 0; s.items = NULL;
-			
-			if (i + 1 >= line_length) {
-				destroy_cmd(cmd);
-				free(s.items);
-				return NULL;
-			}
-			
-			for (size_t j = i + 1; j < line_length; j++) {
-				if (s.position == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r')) {
-					continue;
-				}
-				da_append(&s, line[j]);
-			}
-			
-			if (s.position == 0) {
-				destroy_cmd(cmd);
-				return NULL;
-			}
-
-			char* string = get_string(&s);
-
-			cmd->redirect_file_name = string;
-			cmd->args = args.items;
-			return cmd;
-		} else if (line[i] == '|') {
-			arg_list pipe_args = { DA_NULL };
-			if (s.position > 0) {
-				char* string = get_string(&s);
-				da_append(&args, string);
-			} else {
-				free(s.items);
-				s.bufsize = 0; s.position = 0; s.items = NULL;
-			}
-			
-			da_append(&args, NULL);
-
-			free(s.items);
-			s.bufsize = 0; s.position = 0; s.items = NULL;
-			if (i + 1 >= line_length) {
-				destroy_cmd(cmd);
-				free(s.items);
-				return NULL;
-			}
-
-			for (size_t j = i + 1; j < line_length; j++) {
-				if (s.position == 0 && (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r')) {
-					continue;
-				} else if (line[j] == ' ' || line[j] == '\n' || line[j] == '\t' || line[j] == '\r') {
-					char* string = get_string(&s);
+				if (current == ARG) {
+					da_append(&args, string);
+					da_append(&args, NULL);
+				} else if (current == PIPE_ARG) {
 					da_append(&pipe_args, string);
-					free(s.items);
-					s.bufsize = 0; s.position = 0; s.items = NULL;
-				} else {
-					da_append(&s, line[j]);
+					da_append(&pipe_args, NULL);
 				}
 			}
-			if (s.position > 0) {
-				char* string = get_string(&s);
-				da_append(&pipe_args, string);
-			} else {
-				destroy_cmd(cmd);
-				return NULL;
-			}
-
-			da_append(&pipe_args, NULL);
-			cmd->args = args.items;
-			cmd->pipe_args = pipe_args.items;
-			return cmd;
+			current = REDIRECT;
 		} else {
 			da_append(&s, line[i]);
 		}
 	}
-
-	if (cmd->redirect_file_name == NULL && cmd->pipe_args == NULL) {
-		if (s.position > 0) {
-			char* string = get_string(&s);
+	if (s.position == 0) {
+		return NULL;
+	}
+	if (s.position > 0) {
+		char* string = get_string(&s);
+		if (current == ARG) {
 			da_append(&args, string);
+			da_append(&args, NULL);
+		} else if (current == PIPE_ARG) {
+			da_append(&pipe_args, string);
+			da_append(&pipe_args, NULL);
+		} else {
+			redirect = string;
 		}
-		da_append(&args, NULL);
-		cmd->args = args.items;
+	} 
+	if (args.position == 0) {
+		return NULL;
+	}
+	cmd->args = args.items;
+	if (pipe_args.position > 0) {
+		cmd->pipe_args = pipe_args.items;
+	}
+	if (redirect != NULL) {
+		cmd->redirect_file_name = redirect;
 	}
 	return cmd;
 }

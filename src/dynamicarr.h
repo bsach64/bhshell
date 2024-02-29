@@ -30,7 +30,7 @@ typedef struct arg_list {
 	size_t bufsize;
 } arg_list;
 
-char** get_args(arg_list l);
+char** get_args(arg_list* l);
 void destroy_args(char** args);
 
 #endif

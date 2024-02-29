@@ -8,6 +8,7 @@ char* get_string(str* s) {
 	char* string = xmalloc(sizeof(char) * (s->position));
 	memcpy(string, s->items, sizeof(char) * s->position);
 	free(s->items);
+	s->position = 0; s->items = NULL; s->bufsize = 0;
 	return string;
 }
 
@@ -18,20 +19,19 @@ void destroy_args(char** args) {
 	while(args[i] != NULL) {
 		free(args[i]);
 	}
-	free(args);
 }
 
-char** get_args(arg_list l) {
-	if (l.position == 0) {
+char** get_args(arg_list* l) {
+	if (l->position == 0) {
 		return NULL;
 	}
-	da_append(&l, NULL);
-	char** args = xmalloc(sizeof(char*) * (l.position));
-	for (size_t i = 0; i < l.position - 1; i++) {
-		size_t length = strlen(l.items[i]);
+	da_append(l, NULL);
+	char** args = xmalloc(sizeof(char*) * (l->position));
+	for (size_t i = 0; i < l->position - 1; i++) {
+		size_t length = strlen(l->items[i]);
 		args[i] = xmalloc(sizeof(char) * (length + 1));
-		memcpy(args[i], l.items[i], length + 1);
+		memcpy(args[i], l->items[i], length + 1);
 	}
-	args[l.position - 1] = NULL;
+	args[l->position - 1] = NULL;
 	return args;
 }
