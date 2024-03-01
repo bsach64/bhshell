@@ -13,11 +13,6 @@ enum ARG_TYPE {
 	REDIRECT
 };
 
-#define FREE_ARGS \
-	do {\
-	\
-	} while(0)
-
 char* bhshell_read_line() {
 	str s = { DA_NULL };
 	while(1) {
@@ -60,10 +55,12 @@ command* bhshell_parse(char* line) {
 					da_append(&args, string);
 					da_append(&args, NULL);
 				} else {
+					FREE_ON_INVALID(args, pipe_args, redirect);
 					return NULL;
 				}
 			}
 			if (i + 1 < length && line[i] == '>') {
+				FREE_ON_INVALID(args, pipe_args, redirect);
 				return NULL;
 			}
 			current = PIPE_ARG;
@@ -84,6 +81,7 @@ command* bhshell_parse(char* line) {
 		}
 	}
 	if (s.position == 0) {
+		FREE_ON_INVALID(args, pipe_args, redirect);
 		return NULL;
 	}
 	if (s.position > 0) {
@@ -99,6 +97,7 @@ command* bhshell_parse(char* line) {
 		}
 	} 
 	if (args.position == 0) {
+		FREE_ON_INVALID(args, pipe_args, redirect);
 		return NULL;
 	}
 	cmd->args = args.items;
@@ -120,8 +119,9 @@ command* new_command() {
 	return cmd;
 }
 
-void destroy_cmd(command* cmd) {
+void destroy_command(command* cmd) {
 	destroy_args(cmd->args);
 	destroy_args(cmd->pipe_args);
+	free(cmd->redirect_file_name);
 	free(cmd);
 }

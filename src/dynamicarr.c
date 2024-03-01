@@ -18,6 +18,7 @@ void destroy_args(char** args) {
 	size_t i = 0;
 	while(args[i] != NULL) {
 		free(args[i]);
+		i++;
 	}
 }
 
