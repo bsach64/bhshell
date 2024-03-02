@@ -5,7 +5,7 @@ A shell written in C to help understand processes.
 Has 3 built in commands => [cd, help, exit].\
 Also supports redirection and piping.\
 So, a command like `ping -c 5 google.com | grep rtt > response.txt` works.
-But, multiple redirections and pipes are not supported
+But, multiple pipes are not supported.
 
 ## Build
 `git clone https://github.com/bsach64/bhshell.git`\
