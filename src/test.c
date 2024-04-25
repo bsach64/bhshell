@@ -2,8 +2,8 @@
 #include <assert.h>
 #include <string.h>
 
-#include "dynamicarr.h"
-#include "input.h"
+#include "include/dynamicarr.h"
+#include "include/input.h"
 
 void test_dynamicarr();
 void test_parse();

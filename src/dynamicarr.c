@@ -1,7 +1,7 @@
 #include <string.h>
 
-#include "dynamicarr.h"
-#include "xalloc.h"
+#include "include/dynamicarr.h"
+#include "include/xalloc.h"
 //
 char* get_string(str* s) {
 	da_append(s, '\0');

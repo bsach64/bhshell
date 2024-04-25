@@ -3,9 +3,9 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "input.h"
-#include "dynamicarr.h"
-#include "xalloc.h"
+#include "include/input.h"
+#include "include/dynamicarr.h"
+#include "include/xalloc.h"
 
 enum ARG_TYPE {
 	ARG,

@@ -3,8 +3,8 @@
 #include <fcntl.h>
 #include <stdbool.h>
 
-#include "bhshell.h"
-#include "input.h"
+#include "include/bhshell.h"
+#include "include/input.h"
 
 int main(void) {
 	bhshell_loop();	

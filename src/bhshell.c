@@ -9,10 +9,10 @@
 #include <fcntl.h>
 #include <stdbool.h>
 
-#include "dynamicarr.h"
-#include "input.h"
-#include "bhshell.h"
-#include "xalloc.h"
+#include "include/dynamicarr.h"
+#include "include/input.h"
+#include "include/bhshell.h"
+#include "include/xalloc.h"
 
 #define BUF_SIZE 64
 
